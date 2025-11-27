@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient, User } from '@supabase/supabase-js';
-import { ExternalLink, Calendar, Newspaper, Loader2, RefreshCw, LogOut, User as UserIcon, LogIn, Sparkles, SlidersHorizontal, Filter } from 'lucide-react';
+import { ExternalLink, Calendar, Newspaper, Loader2, RefreshCw, LogOut, User as UserIcon, LogIn, Sparkles, SlidersHorizontal, Filter, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -17,8 +17,8 @@ const supabase = (supabaseUrl && supabaseKey)
 // Kategoriler
 const CATEGORIES = ['Sana Özel', 'Tümü', 'Spor', 'Ekonomi', 'Teknoloji', 'Gündem', 'Dünya'];
 
-// YENİ: Kaynaklar Listesi
-const SOURCES = ['Tümü', 'TRT Haber', 'CNN Türk', 'Ensonhaber', 'BBC Türkçe'];
+// Kaynaklar Listesi (Bot dosyasındaki ile aynı olmalı)
+const SOURCES = ['Tümü', 'TRT Haber', 'Ensonhaber', 'NTV', 'Habertürk', 'DonanımHaber', 'CNN Türk', 'BBC Türkçe', 'Sözcü', 'Sondakika'];
 
 interface NewsItem {
   id: number;
@@ -33,13 +33,14 @@ interface NewsItem {
 export default function Home() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Filtre Durumları
   const [selectedCategory, setSelectedCategory] = useState('Tümü');
-  const [selectedSource, setSelectedSource] = useState('Tümü'); // Kaynak filtresi
-  
+  const [selectedSource, setSelectedSource] = useState('Tümü'); 
   const [user, setUser] = useState<User | null>(null);
   const [interests, setInterests] = useState<string[]>([]);
+  
+  // YENİ: Modal Durumu
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedNewsLink, setSelectedNewsLink] = useState<string | null>(null);
   
   const router = useRouter();
 
@@ -84,11 +85,18 @@ export default function Home() {
     setUser(null);
     setInterests([]);
     setSelectedCategory('Tümü');
-    setSelectedSource('Tümü'); // Çıkışta kaynağı da sıfırla
+    setSelectedSource('Tümü'); 
     router.refresh();
   };
 
-  // --- GELİŞMİŞ FİLTRELEME MANTIĞI (Kategori + Kaynak) ---
+  // YENİ: Habere Tıklama Fonksiyonu
+  const handleNewsClick = (link: string) => {
+    setSelectedNewsLink(link);
+    setModalOpen(true);
+  };
+
+
+  // --- FİLTRELEME MANTIĞI ---
   const filteredNews = news.filter(item => {
     // 1. Kategori Kontrolü
     let categoryMatch = false;
@@ -96,12 +104,11 @@ export default function Home() {
     else if (selectedCategory === 'Sana Özel') categoryMatch = interests.includes(item.category);
     else categoryMatch = item.category === selectedCategory;
 
-    // 2. Kaynak Kontrolü (Yeni)
+    // 2. Kaynak Kontrolü
     let sourceMatch = false;
     if (selectedSource === 'Tümü') sourceMatch = true;
     else sourceMatch = item.source === selectedSource;
 
-    // İkisi de uyuyorsa göster
     return categoryMatch && sourceMatch;
   });
 
@@ -114,16 +121,13 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 pb-20">
       
-      {/* --- HEADER --- */}
+      {/* --- HEADER (Değişmedi) --- */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3">
           
-          {/* Üst Satır */}
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
-              <div className="bg-red-600 text-white p-1.5 rounded-lg">
-                <Newspaper size={20} />
-              </div>
+              <div className="bg-red-600 text-white p-1.5 rounded-lg"><Newspaper size={20} /></div>
               <h1 className="text-xl font-bold tracking-tight hidden md:block">Haber<span className="text-red-600">Boom</span></h1>
             </div>
             
@@ -149,10 +153,9 @@ export default function Home() {
             </div>
           </div>
 
-          {/* --- FİLTRELER ALANI --- */}
+          {/* --- FİLTRELER ALANI (Değişmedi) --- */}
           <div className="flex flex-col gap-3 pb-1">
             
-            {/* 1. KATEGORİLER */}
             <div className="flex gap-2 overflow-x-auto scrollbar-hide">
               {CATEGORIES.map((cat) => {
                 if (cat === 'Sana Özel' && interests.length === 0) return null;
@@ -174,7 +177,6 @@ export default function Home() {
               })}
             </div>
 
-            {/* 2. KAYNAKLAR (Yeni) */}
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pt-1 border-t border-gray-100">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
                 <Filter size={10} /> Kaynak:
@@ -205,16 +207,21 @@ export default function Home() {
           <div className="flex justify-center py-20 text-red-600"><Loader2 size={40} className="animate-spin" /></div>
         ) : filteredNews.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
-            <p className="text-gray-500">
-              {selectedSource !== 'Tümü' 
-                ? `${selectedSource} kaynağından bu kategoride haber bulunamadı.` 
-                : 'Bu kategoride haber yok.'}
-            </p>
+            <p className="text-gray-500">Bu kategoride haber bulunamadı.</p>
+            {selectedCategory === 'Sana Özel' && (
+              <Link href="/onboarding" className="text-red-600 font-bold hover:underline mt-2 block">İlgi alanlarını düzenle</Link>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredNews.map((item) => (
-              <article key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow flex flex-col h-full group">
+              <article 
+                key={item.id} 
+                // BURASI DEĞİŞTİ: Artık <a> değil, tıklanabilir bir kutu
+                onClick={() => handleNewsClick(item.link)}
+                className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow flex flex-col h-full group cursor-pointer"
+                role="button"
+              >
                 <div className="relative h-48 bg-gray-200 overflow-hidden">
                   {item.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -230,8 +237,15 @@ export default function Home() {
                     <span className="flex items-center gap-1"><Calendar size={12} />{formatDate(item.created_at)}</span>
                   </div>
                   <h2 className="text-lg font-bold leading-tight mb-3 text-gray-900 flex-grow group-hover:text-red-600 transition-colors line-clamp-3">{item.title}</h2>
-                  <a href={item.link} target="_blank" rel="noopener noreferrer" className="mt-auto w-full flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-900 hover:text-white text-gray-700 font-medium py-2.5 rounded-lg transition-all border border-gray-200 text-sm">
-                    Habere Git <ExternalLink size={14} />
+                  {/* Dışarıya gitmek isteyenler için harici link butonu */}
+                  <a 
+                    href={item.link} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    onClick={(e) => e.stopPropagation()} // Modal açılmasını engeller
+                    className="mt-auto w-full flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-900 hover:text-white text-gray-700 font-medium py-2.5 rounded-lg transition-all border border-gray-200 text-sm"
+                  >
+                    Harici Kaynağa Git <ExternalLink size={14} />
                   </a>
                 </div>
               </article>
@@ -239,6 +253,35 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* --- YENİ: HABER GÖSTERİM MODALI --- */}
+      {modalOpen && selectedNewsLink && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-0 md:p-8 z-50 animate-in fade-in duration-300">
+          <div className="w-full h-full md:w-5/6 md:h-5/6 bg-white rounded-none md:rounded-xl shadow-2xl overflow-hidden flex flex-col">
+            
+            {/* Modal Başlık Çubuğu */}
+            <div className="flex justify-between items-center p-3 border-b border-gray-200 bg-gray-50">
+              <h3 className="text-sm font-medium text-gray-600 truncate max-w-[80%]">
+                Kaynak: {selectedNewsLink}
+              </h3>
+              <button 
+                onClick={() => setModalOpen(false)}
+                className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            {/* iFrame İçerik Alanı */}
+            <iframe
+              src={selectedNewsLink}
+              title="Haber İçeriği"
+              className="w-full flex-grow border-0"
+              style={{ minHeight: '100px' }}
+            />
+          </div>
+        </div>
+      )}
     </main>
   );
 }
